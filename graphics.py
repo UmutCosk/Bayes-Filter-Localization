@@ -8,5 +8,6 @@ class Graphics:
         pygame.display.set_caption("Bayers Simulator")
 
     def draw(self, object):
-        pygame.draw.rect(self.window, object.color, object.rect)
+        self.window.fill((0, 0, 0))
+        pygame.draw.rect(self.window, object.color, object.get_rect())
         pygame.display.update()
