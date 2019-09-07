@@ -19,20 +19,20 @@ class Car:
         self.velocity = velocity
         self.moving = False
 
-    def move(self, window_width, window_height, map_layout):
+    def move(self, screen_width, screen_height, map_layout):
         keys = pygame.key.get_pressed()
         if(keys[pygame.K_LEFT] or keys[pygame.K_RIGHT] or keys[pygame.K_UP] or keys[pygame.K_DOWN]):
             self.moving = True
             if keys[pygame.K_LEFT] and self.x > round(self.width/2):
                 if(not self.is_colliding(CollisionSpot.LEFT, map_layout)):
                     self.x -= self.velocity
-            if keys[pygame.K_RIGHT] and self.x < window_width - round((self.width*1.5)):
+            if keys[pygame.K_RIGHT] and self.x < screen_width - round((self.width*1.5)):
                 if(not self.is_colliding(CollisionSpot.RIGHT, map_layout)):
                     self.x += self.velocity
             if keys[pygame.K_UP] and self.y > round(self.height/2):
                 if(not self.is_colliding(CollisionSpot.TOP, map_layout)):
                     self.y -= self.velocity
-            if keys[pygame.K_DOWN] and self.y < window_height - round((self.height*1.2)):
+            if keys[pygame.K_DOWN] and self.y < screen_height - round((self.height*1.2)):
                 if(not self.is_colliding(CollisionSpot.BOTTOM, map_layout)):
                     self.y += self.velocity
         else:
