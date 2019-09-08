@@ -1,33 +1,34 @@
 import pygame
 import cv2
+import numpy as np
+from enum import Enum
+
+refresh_rate = 1
+
+
+class ColorTypes(Enum):
+    Wall = (0, 0, 0)
 
 
 class Graphics:
-    def __init__(self, width, text_width, height, screen_name, map_path):
-        self.width = width+400
-        self.text_width = text_width
+    def __init__(self, width, height, screen_name, map_path):
+        self.text_width = round(width/2)
+        self.width = width + self.text_width
         self.height = height
         self.screen = pygame.display.set_mode((self.width, self.height))
         pygame.display.set_caption(screen_name)
 
         # Load Map Layout (Walls)
-        map_layout = cv2.imread(map_path)
-        self.map_layout = cv2.cvtColor(map_layout, cv2.COLOR_BGR2GRAY)
+        self.map_layout = cv2.imread(map_path)
+        # Swaps axis to have x,y order
+        self.map_layout = np.swapaxes(self.map_layout, 1, 0)
         self.back_ground = Background(map_path, [0, 0])
 
-    def draw_object(self, object):
-        pygame.draw.rect(self.screen, object.color, object.get_rect())
+    def draw_object(self, object_color, object_rect):
+        pygame.draw.rect(self.screen,  object_color, object_rect.get_rect())
 
     def draw_area(self, color, rect):
         pygame.draw.rect(self.screen, color, rect)
-
-    def draw_pixels(self, image):
-        for y_pixel in range(600):
-            for x_pixel in range(800):
-                rect = (x_pixel, y_pixel, 1, 1)
-                color_value = image[y_pixel, x_pixel]
-                color = (color_value, color_value, color_value)
-                pygame.draw.rect(self.screen, color, rect)
 
     def get_background(self):
         self.screen.fill((175, 175, 175))
@@ -35,7 +36,7 @@ class Graphics:
 
     def update_screen(self):
         pygame.display.update()
-        pygame.time.delay(1)  # ~60/17 Hz
+        pygame.time.delay(refresh_rate)  # ~60/17 Hz
 
     def blit_text(self, text, rect):
         self.screen.blit(text, rect)

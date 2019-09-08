@@ -8,7 +8,7 @@ import text
 pygame.init()
 
 # Init
-screen = Graphics(width=800, text_width=400, height=600,
+screen = Graphics(width=800, height=600,
                   screen_name="Bayes Simulator", map_path="map.png")
 car = Car(x_start=50, y_start=50, width=10, height=10,
           color=(255, 0, 0), velocity=3)
@@ -22,13 +22,13 @@ while run:
     # Display Car position
     text.position_display(screen, car)
     # Draw the car on screen
-    screen.draw_object(object=car)
+    screen.draw_object(car.color, car.rect)
 
     # Exit Condition
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             run = False
-    # Refresh-Rate @ 60Hz
+    # Refresh
     screen.update_screen()
 
 

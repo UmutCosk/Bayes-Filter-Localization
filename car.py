@@ -1,12 +1,7 @@
 import pygame
 from enum import Enum
-
-
-class CollisionSpot(Enum):
-    LEFT = 0
-    RIGHT = 1
-    TOP = 2
-    BOTTOM = 3
+from rect import Rect
+from rect import CollisionSpot
 
 
 class Car:
@@ -18,43 +13,28 @@ class Car:
         self.color = color
         self.velocity = velocity
         self.moving = False
+        self.rect = Rect(self.width, self.height, self.x, self.y)
 
     def move(self, screen_width, screen_height, map_layout):
         keys = pygame.key.get_pressed()
         if(keys[pygame.K_LEFT] or keys[pygame.K_RIGHT] or keys[pygame.K_UP] or keys[pygame.K_DOWN]):
             self.moving = True
-            if keys[pygame.K_LEFT] and self.x > round(self.width/2):
-                if(not self.is_colliding(CollisionSpot.LEFT, map_layout)):
+            if keys[pygame.K_LEFT]:
+                if(not self.rect.colliding_wall(CollisionSpot.LEFT, map_layout)):
                     self.x -= self.velocity
-            if keys[pygame.K_RIGHT] and self.x < screen_width - round((self.width*1.5)):
-                if(not self.is_colliding(CollisionSpot.RIGHT, map_layout)):
+                    self.rect = self.rect.update_rect(self.x, self.y)
+            if keys[pygame.K_RIGHT]:
+                if(not self.rect.colliding_wall(CollisionSpot.RIGHT, map_layout)):
                     self.x += self.velocity
-            if keys[pygame.K_UP] and self.y > round(self.height/2):
-                if(not self.is_colliding(CollisionSpot.TOP, map_layout)):
+                    self.rect = self.rect.update_rect(self.x, self.y)
+            if keys[pygame.K_UP]:
+                if(not self.rect.colliding_wall(CollisionSpot.TOP, map_layout)):
                     self.y -= self.velocity
-            if keys[pygame.K_DOWN] and self.y < screen_height - round((self.height*1.2)):
-                if(not self.is_colliding(CollisionSpot.BOTTOM, map_layout)):
+                    self.rect = self.rect.update_rect(self.x, self.y)
+            if keys[pygame.K_DOWN]:
+                if(not self.rect.colliding_wall(CollisionSpot.BOTTOM, map_layout)):
                     self.y += self.velocity
+                    self.rect = self.rect.update_rect(self.x, self.y)
+
         else:
             self.moving = False
-
-    def get_rect(self):
-        rect = (self.x, self.y, self.width, self.height)
-        return rect
-
-    def is_colliding(self, collision_spot, map_layout):
-        coliding = False
-        collision_offset = 2
-        if(collision_spot == CollisionSpot.LEFT):
-            if(map_layout[self.y+round(self.height/2), self.x-collision_offset] == 0):
-                coliding = True
-        if(collision_spot == CollisionSpot.RIGHT):
-            if(map_layout[self.y+round(self.height/2), self.x+self.width+collision_offset] == 0):
-                coliding = True
-        if(collision_spot == CollisionSpot.TOP):
-            if(map_layout[self.y-collision_offset, self.x+round(self.width/2)] == 0):
-                coliding = True
-        if(collision_spot == CollisionSpot.BOTTOM):
-            if(map_layout[self.y+self.height+collision_offset, self.x+round(self.width/2)] == 0):
-                coliding = True
-        return coliding
