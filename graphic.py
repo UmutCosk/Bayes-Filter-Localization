@@ -6,11 +6,21 @@ from enum import Enum
 refresh_rate = 1
 
 
+class Color(Enum):
+    Red = (255, 0, 0)
+    Green = (0, 175, 0)  # Darker Green
+    Blue = (0, 0, 255)
+    Yellow = (0, 255, 255)
+    Black = (0, 0, 0)
+    Gray1 = (175, 175, 175)
+
+
 class ColorTypes(Enum):
-    Wall = (0, 0, 0)
+    Wall = Color.Black.value
+    Landmark = Color.Green.value
 
 
-class Graphics:
+class Graphic:
     def __init__(self, width, height, screen_name, map_path):
         self.text_width = round(width/2)
         self.width = width + self.text_width
@@ -31,7 +41,7 @@ class Graphics:
         pygame.draw.rect(self.screen, color, rect)
 
     def get_background(self):
-        self.screen.fill((175, 175, 175))
+        self.screen.fill(Color.Gray1.value)
         self.screen.blit(self.back_ground.image, self.back_ground.rect)
 
     def update_screen(self):
@@ -40,6 +50,9 @@ class Graphics:
 
     def blit_text(self, text, rect):
         self.screen.blit(text, rect)
+
+    def draw_circle(self, color, position, radius, width):
+        pygame.draw.circle(self.screen, color, position, radius, width)
 
 
 class Background(pygame.sprite.Sprite):

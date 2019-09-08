@@ -1,4 +1,4 @@
-from graphics import ColorTypes
+from graphic import ColorTypes
 from enum import Enum
 
 
@@ -10,7 +10,7 @@ class CollisionSpot(Enum):
     BOTTOM = 4
 
 
-class Rect:
+class Rect():
     def __init__(self, width, height, x, y):
         self.width = width
         self.height = height
@@ -30,7 +30,7 @@ class Rect:
     def get_center(self):
         x_center = self.x+self.width/2
         y_center = self.y+self.height/2
-        return (x_center, y_center)
+        return (int(x_center), int(y_center))
 
     def get_left_bound(self):
         x_center, y_center = self.get_center()
@@ -48,31 +48,61 @@ class Rect:
         x_center, y_center = self.get_center()
         return int(y_center + self.height/2)
 
-    def overlap_rect(self, other):
-        collision_spot = CollisionSpot.NONE
-        if(self.get_left_bound() < other.get_right_bound()):
-            collision_spot = CollisionSpot.LEFT
-        if(self.get_right_bound() > other.get_left_bound()):
-            collision_spot = CollisionSpot.RIGHT
-        if(self.get_top_bound() < other.get_bottom_bound()):
-            collision_spot = CollisionSpot.TOP
-        if(self.get_bottom_bound() > other.get_top_bound()):
-            collision_spot = CollisionSpot.BOTTOM
-        return collision_spot
+    # def intersecting(self, other):
+    #     intersecting = False
+    #     if(self.get_right_bound() > other.get_left_bound() and self.get_right_bound() < other.get_right_bound()):
+    #         if(self.get_top_bound() < other.get_bottom_bound() and self.get_top_bound() > other.get_top_bound()):
+    #             intersecting = True
+    #     if(self.get_left_bound() < other.get_right_bound() and self.get_left_bound() > other.get_left_bound()):
+    #         if(self.get_top_bound() < other.get_bottom_bound() and self.get_top_bound() > other.get_top_bound()):
+    #             intersecting = True
+    #     if(self.get_left_bound() < other.get_right_bound() and self.get_left_bound() > other.get_left_bound()):
+    #         if(self.get_bottom_bound() > other.get_top_bound() and self.get_bottom_bound() < other.get_bottom_bound()):
+    #             intersecting = True
+    #     if(self.get_right_bound() > other.get_left_bound() and self.get_right_bound() < other.get_right_bound()):
+    #         if(self.get_bottom_bound() > other.get_top_bound() and self.get_bottom_bound() < other.get_bottom_bound()):
+    #             intersecting = True
+    #     return intersecting
 
-    def colliding_wall(self, collision_spot, map_layout):
-        coliding = False
-        collision_offset = 1
-        if(collision_spot == CollisionSpot.LEFT):
-            if(tuple(map_layout[self.get_left_bound(), self.y]) == ColorTypes.Wall.value):
-                coliding = True
-        if(collision_spot == CollisionSpot.RIGHT):
-            if(tuple(map_layout[self.get_right_bound(), self.y]) == ColorTypes.Wall.value):
-                coliding = True
-        if(collision_spot == CollisionSpot.TOP):
-            if(tuple(map_layout[self.x, self.get_top_bound()]) == ColorTypes.Wall.value):
-                coliding = True
-        if(collision_spot == CollisionSpot.BOTTOM):
-            if(tuple(map_layout[self.x, self.get_bottom_bound()]) == ColorTypes.Wall.value):
-                coliding = True
-        return coliding
+    # def get_top_left_corner(self):
+    #     return (self.x, self.y)
+
+    # def get_top_right_corner(self):
+    #     return (self.x+self.width, self.y)
+
+    # def get_bottom_right_corner(self):
+    #     return (self.x+self.width, self.y+self.height)
+
+    # def get_bottom_left_corner(self):
+    #     return (self.x, self.y+self.height)
+
+    def colliding_other(self, car, other):
+        if(car.currentCollision == CollisionSpot.NONE):
+            if(self.get_right_bound() < other.get_left_bound() and self.intersecting(other)):
+                car.currentCollision = CollisionSpot.RIGHT
+            if(self.get_right_bound() > other.get_left_bound() and self.intersecting(other)):
+                car.currentCollision = CollisionSpot.LEFT
+            if(self.get_top_bound() < other.get_bottom_bound() and self.intersecting(other)):
+                car.currentCollision = CollisionSpot.BOTTOM
+            if(self.get_bottom_bound() > other.get_top_bound() and self.intersecting(other)):
+                car.currentCollision = CollisionSpot.TOP
+
+    def colliding_wall(self, car, map_layout):
+        if(car.currentCollision == CollisionSpot.NONE):
+            collision_offset = 1
+            map_value = tuple(
+                map_layout[self.get_left_bound(), self.y+round(self.height/2)])
+            if(map_value == ColorTypes.Wall.value):
+                car.currentCollision = CollisionSpot.LEFT
+            map_value = tuple(
+                map_layout[self.get_right_bound(), self.y+round(self.height/2)])
+            if(map_value == ColorTypes.Wall.value):
+                car.currentCollision = CollisionSpot.RIGHT
+            map_value = tuple(
+                map_layout[self.x+round(self.width/2), self.get_top_bound()])
+            if(map_value == ColorTypes.Wall.value):
+                car.currentCollision = CollisionSpot.TOP
+            map_value = tuple(
+                map_layout[self.x+round(self.width/2), self.get_bottom_bound()])
+            if(map_value == ColorTypes.Wall.value):
+                car.currentCollision = CollisionSpot.BOTTOM
