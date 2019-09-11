@@ -2,6 +2,8 @@ import pygame
 from enum import Enum
 from rect import Rect
 from rect import CollisionSpot
+from bayes import BayesFilter
+import time
 
 
 class Car:
@@ -17,11 +19,10 @@ class Car:
         self.currentCollision = CollisionSpot.NONE
         self.detect_radius = detection_radius
 
-    def move(self, screen_width, screen_height, map_layout):
+    def move(self, screen_width, screen_height, map_layout, bayes_filter, update):
         keys = pygame.key.get_pressed()
         if(keys[pygame.K_LEFT] or keys[pygame.K_RIGHT] or keys[pygame.K_UP] or keys[pygame.K_DOWN]):
             self.moving = True
-            print(self.currentCollision)
             if keys[pygame.K_LEFT]:
                 if(self.currentCollision != CollisionSpot.LEFT):
                     self.x -= self.velocity
@@ -40,3 +41,9 @@ class Car:
                     self.rect = self.rect.update_rect(self.x, self.y)
         else:
             self.moving = False
+        if(self.moving and update):
+            bayes_filter.set_priori_position(self.x, self.y)
+            #bayes_filter.flaten_around(self.x, self.y)
+            print(bayes_filter.get_best_probability())
+            update = False
+        return update
