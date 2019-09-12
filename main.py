@@ -13,7 +13,7 @@ columns = 19  # X
 rows = 19  # Y
 # Chance that the measurement gives the wrong color
 # Here 40%, very high value, still converges with enough measurements
-measure_uncertainty = 0.4
+measure_uncertainty = 0.0
 # Given a Measurement, how likely you are on the:
 right_color = 1-measure_uncertainty
 wrong_color = measure_uncertainty
@@ -147,21 +147,10 @@ class Player:
             for column in range(columns):
                 grid.cells[column][row].probability = shifted_probabilities[column][row]
 
-        # Blur - not implemented
-        # grid.cells[blur_around_x][blur_around_y].probability = grid.cells[blur_around_x][blur_around_y].probability*1
-        # for dx in range(blur_around_x-blur_radius, blur_around_x+blur_radius+1):
-        #     for dy in range(blur_around_y-blur_radius, blur_around_y+blur_radius+1):
-        #         if(not(dx < 0 or dy < 0) and not (dx == blur_around_x and dy == blur_around_y)and not(dx > columns-1 or dy > rows-1)):
-        #             grid.cells[dx][dy].probability = grid.cells[dx][dy].probability * 1
-        # # norm
-        # summe = 0
-        # for row in range(rows):
-        #     for column in range(columns):
-        #         summe += grid.cells[column][row].probability
-        # norm = 1/summe
-        # for row in range(rows):
-        #     for column in range(columns):
-        #         grid.cells[column][row].probability *= norm
+        # Blur all
+        for row in range(rows):
+            for column in range(columns):
+                grid.cells[column][row].probability = grid.cells[column][row].probability * 0.7
 
     def move_player(self, grid):
         moved = False
@@ -194,7 +183,7 @@ class Player:
             lastMovement = LastMovement.NONE
         if(moved):
             self.shift_and_blur(blur_around_x=(self.grid_x-1),
-                                blur_around_y=(self.grid_y-1), blur_radius=1, grid=grid, lastMove=lastMovement)
+                                blur_around_y=(self.grid_y-1), blur_radius=2, grid=grid, lastMove=lastMovement)
         return moved
 
     def update_rect(self):
@@ -245,7 +234,7 @@ while run:
     # Draw Cells
     grid.draw_cells(screen)
     # Draw Player
-    player.draw_player(screen)
+   # player.draw_player(screen)
     # Speed
     time.sleep(speed)
     # Player moves
