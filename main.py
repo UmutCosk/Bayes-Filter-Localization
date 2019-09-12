@@ -2,11 +2,27 @@
 # import typing
 from graphic import Graphic
 from graphic import Color
+from enum import Enum
 import random
 import pygame
 import time
 import numpy as np
 pygame.init()
+
+columns = 19  # X
+rows = 19  # Y
+measure_uncertainty = 0.05
+
+
+class LastMovement(Enum):
+    NONE = 0
+    LEFT = 1
+    RIGHT = 2
+    UP = 3
+    DOWN = 4
+
+
+lastMovement = LastMovement(LastMovement.NONE)
 
 
 class Grid:
@@ -51,16 +67,6 @@ class Grid:
     def get_grid_y(self, y):
         return self.padding*y+(y-1)*self.size
 
-    # def get_cell_index(self, x, y):
-    #     index = 0
-    #     counter = 0
-    #     for i in range(self.rows):
-    #         for j in range(self.columns):
-    #             if(self.cells[counter].x_grid == x and self.cells[counter].y_grid == y):
-    #                 index = counter
-    #             counter += 1
-    #     return index
-
     def measure_color(self, x, y, measure_uncertainty):
         true_color = self.cells[x-1][y-1].color
         color = true_color
@@ -76,27 +82,13 @@ class Grid:
         for column in range(rows):
             for row in range(columns):
                 if(self.cells[column][row].color == measurement):
-                    new_probs[column][row] = self.cells[column][row].probability * 10000
+                    new_probs[column][row] = self.cells[column][row].probability * 2
                 else:
-                    new_probs[column][row] = self.cells[column][row].probability * 0.1
+                    new_probs[column][row] = self.cells[column][row].probability * 1
         new_probs = np.dot(new_probs, 1/np.sum(new_probs))
         for row in range(rows):
             for column in range(columns):
                 self.cells[column][row].probability = new_probs[column][row]
-
-        # # a-prio
-        # for row in range(rows):
-        #     for column in range(columns):
-        #         if(self.cells[column][row].color == measurement):
-        #             new_probs[column][row] = self.cells[column][row].probability * 100
-        #         else:
-        #             new_probs[column][row] = self.cells[column][row].probability * 0.1
-        # print(new_probs)
-        # new_probs = np.dot(new_probs, 1/np.sum(new_probs))
-        # print(new_probs)
-        # for row in range(rows):
-        #     for column in range(columns):
-        #         self.cells[column][row].probability = new_probs[column][row]
 
 
 class Cell:
@@ -124,14 +116,30 @@ class Player:
     def draw_player(self, screen):
         screen.draw_area(self.color, self.rect, 255)
 
-    def blur(self, blur_around_x, blur_around_y, blur_radius, grid):
-        print(blur_around_x)
-        print(blur_around_y)
-        grid.cells[blur_around_x][blur_around_y].probability = grid.cells[blur_around_x][blur_around_y].probability*1.2
+    def blur(self, blur_around_x, blur_around_y, blur_radius, grid, lastMove):
+        current_probabilities = np.zeros((columns, rows))
+        shifted_probabilities = np.zeros((columns, rows))
+        for row in range(rows):
+            for column in range(columns):
+                current_probabilities[column][row] = grid.cells[column][row].probability
+        if(lastMove == LastMovement.LEFT):
+            shifted_probabilities = np.roll(current_probabilities, -1, axis=0)
+        if(lastMove == LastMovement.RIGHT):
+            shifted_probabilities = np.roll(current_probabilities, 1, axis=0)
+        if(lastMove == LastMovement.UP):
+            shifted_probabilities = np.roll(current_probabilities, -1, axis=1)
+        if(lastMove == LastMovement.DOWN):
+            shifted_probabilities = np.roll(current_probabilities, 1, axis=1)
+
+        for row in range(rows):
+            for column in range(columns):
+                grid.cells[column][row].probability = shifted_probabilities[column][row]
+
+        grid.cells[blur_around_x][blur_around_y].probability = grid.cells[blur_around_x][blur_around_y].probability*1
         for dx in range(blur_around_x-blur_radius, blur_around_x+blur_radius+1):
             for dy in range(blur_around_y-blur_radius, blur_around_y+blur_radius+1):
                 if(not(dx < 0 or dy < 0) and not (dx == blur_around_x and dy == blur_around_y)and not(dx > columns-1 or dy > rows-1)):
-                    grid.cells[dx][dy].probability = grid.cells[dx][dy].probability * 1.1
+                    grid.cells[dx][dy].probability = grid.cells[dx][dy].probability * 1
         # norm
         summe = 0
         for row in range(rows):
@@ -144,33 +152,40 @@ class Player:
 
     def move_player(self, grid):
         moved = False
+        lastMovement = LastMovement.NONE
         keys = pygame.key.get_pressed()
         if(keys[pygame.K_LEFT] or keys[pygame.K_RIGHT] or keys[pygame.K_UP] or keys[pygame.K_DOWN]):
             moved = True
             if keys[pygame.K_LEFT]:
                 self.grid_x -= 1
+                lastMovement = LastMovement.LEFT
                 if(self.grid_x < 1):
                     moved = False
                     self.grid_x = 1
             if keys[pygame.K_RIGHT]:
                 self.grid_x += 1
+                lastMovement = LastMovement.RIGHT
                 if(self.grid_x > columns):
                     moved = False
                     self.grid_x = columns
             if keys[pygame.K_UP]:
+                lastMovement = LastMovement.UP
                 self.grid_y -= 1
                 if(self.grid_y < 1):
                     moved = False
                     self.grid_y = 1
             if keys[pygame.K_DOWN]:
+                lastMovement = LastMovement.DOWN
                 self.grid_y += 1
                 if(self.grid_y > rows):
                     moved = False
                     self.grid_y = rows
         self.update_rect()
+        if(not moved):
+            lastMovement = LastMovement.NONE
         if(moved):
             self.blur(blur_around_x=(self.grid_x-1),
-                      blur_around_y=(self.grid_y-1), blur_radius=1, grid=grid)
+                      blur_around_y=(self.grid_y-1), blur_radius=1, grid=grid, lastMove=lastMovement)
         return moved
 
     def update_rect(self):
@@ -184,24 +199,6 @@ class BayesFilter:
         self.measure_certainty = 0.90
         self.green_probs = []
         self.red_probs = []
-
-    # def algorithm(self, measurement):
-    #     new_probs = []
-    #     for row in range(rows):
-    #         new = []
-    #         for column in range(columns):
-    #             new.append(0)
-    #         new_probs.append(new)
-    #     new_probs = np.swapaxes(new_probs, 0, 1)
-    #     # a-prio
-    #     for row in range(rows):
-    #         for column in range(columns):
-    #             if(grid.cells[column][row].color == measurement):
-    #                 new_probs[column][row] = grid.cells[column][row].probability
-    #             else:
-    #                 new_probs[column][row] = grid.cells[column][row].probability
-    #     print(new_probs)
-    #     new_probs = np.dot(new_probs, 1/np.sum(new_probs))
 
 
 pygame.font.init()
@@ -223,10 +220,6 @@ def estimated_position_display(screen, x_ext, y_est):
                                                text_offset+100, 100, 100))
 
 
-columns = 5  # X
-rows = 5  # Y
-measure_uncertainty = 0.10
-
 screen = Graphic(800, 800, "Bayes Filter")
 grid = Grid(columns, rows, 37, 5)
 
@@ -245,7 +238,7 @@ while run:
     grid.draw_cells(screen)
     # Draw Player
     player.draw_player(screen)
-    time.sleep(0.1)
+    time.sleep(0.05)
     # Player moves
     moved = player.move_player(grid)
 
