@@ -5,6 +5,7 @@ from graphic import Color
 import random
 import pygame
 import time
+import numpy as np
 pygame.init()
 
 
@@ -32,15 +33,20 @@ class Grid:
                 index += 1
             self.cells.append(new)
 
+        self.cells = np.swapaxes(self.cells, 0, 1)
+
     def draw_cells(self, screen):
-        for i in range(self.rows):
-            for j in range(self.columns):
-                alpha = 200 * self.cells[i][j].probability + 25
+        for row in range(self.rows):
+            for column in range(self.columns):
+                alpha = 200 * self.cells[column][row].probability + 25
+                alpha = alpha**(1.2)
+                if(alpha > 255):
+                    alpha = 255
                 screen.draw_area(
-                    self.cells[i][j].color, self.cells[i][j].rect, alpha)
+                    self.cells[column][row].color, self.cells[column][row].rect, alpha)
 
     def get_grid_x(self, x):
-        return self.padding*x+self.size*(x-1)
+        return self.padding*x+(x-1)*self.size
 
     def get_grid_y(self, y):
         return self.padding*y+(y-1)*self.size
@@ -55,9 +61,42 @@ class Grid:
     #             counter += 1
     #     return index
 
-    def measure_color(self, x, y):
-        
-        return self.cells[-4][-3].color
+    def measure_color(self, x, y, measure_uncertainty):
+        true_color = self.cells[x-1][y-1].color
+        color = true_color
+        if(random.random() <= measure_uncertainty):
+            if(true_color == Color.Red.value):
+                color = Color.Green.value
+            else:
+                color = Color.Red.value
+        return color
+
+    def algorithm(self, measurement):
+        new_probs = np.zeros((columns, rows))
+        for column in range(rows):
+            for row in range(columns):
+                if(self.cells[column][row].color == measurement):
+                    new_probs[column][row] = self.cells[column][row].probability * 10000
+                else:
+                    new_probs[column][row] = self.cells[column][row].probability * 0.1
+        new_probs = np.dot(new_probs, 1/np.sum(new_probs))
+        for row in range(rows):
+            for column in range(columns):
+                self.cells[column][row].probability = new_probs[column][row]
+
+        # # a-prio
+        # for row in range(rows):
+        #     for column in range(columns):
+        #         if(self.cells[column][row].color == measurement):
+        #             new_probs[column][row] = self.cells[column][row].probability * 100
+        #         else:
+        #             new_probs[column][row] = self.cells[column][row].probability * 0.1
+        # print(new_probs)
+        # new_probs = np.dot(new_probs, 1/np.sum(new_probs))
+        # print(new_probs)
+        # for row in range(rows):
+        #     for column in range(columns):
+        #         self.cells[column][row].probability = new_probs[column][row]
 
 
 class Cell:
@@ -85,6 +124,24 @@ class Player:
     def draw_player(self, screen):
         screen.draw_area(self.color, self.rect, 255)
 
+    def blur(self, blur_around_x, blur_around_y, blur_radius, grid):
+        print(blur_around_x)
+        print(blur_around_y)
+        grid.cells[blur_around_x][blur_around_y].probability = grid.cells[blur_around_x][blur_around_y].probability*1.2
+        for dx in range(blur_around_x-blur_radius, blur_around_x+blur_radius+1):
+            for dy in range(blur_around_y-blur_radius, blur_around_y+blur_radius+1):
+                if(not(dx < 0 or dy < 0) and not (dx == blur_around_x and dy == blur_around_y)and not(dx > columns-1 or dy > rows-1)):
+                    grid.cells[dx][dy].probability = grid.cells[dx][dy].probability * 1.1
+        # norm
+        summe = 0
+        for row in range(rows):
+            for column in range(columns):
+                summe += grid.cells[column][row].probability
+        norm = 1/summe
+        for row in range(rows):
+            for column in range(columns):
+                grid.cells[column][row].probability *= norm
+
     def move_player(self, grid):
         moved = False
         keys = pygame.key.get_pressed()
@@ -111,6 +168,9 @@ class Player:
                     moved = False
                     self.grid_y = rows
         self.update_rect()
+        if(moved):
+            self.blur(blur_around_x=(self.grid_x-1),
+                      blur_around_y=(self.grid_y-1), blur_radius=1, grid=grid)
         return moved
 
     def update_rect(self):
@@ -119,92 +179,29 @@ class Player:
         self.rect = (self.x, self.y, self.size, self.size)
 
 
-# class BayesFilter:
-#     def __init__(self, grid):
-#         self.red_probability = grid.red_count/grid.size**2
-#         self.green_probability = grid.green_count/grid.size**2
-#         self.measure_certainty = 1
-#         self.green_cells = []
-#         self.red_cells = []
-#         for cell in grid.cells:
-#             if(cell.color == Color.Red.value):
-#                 self.red_cells.append(cell)
-#             else:
-#                 self.green_cells.append(cell)
+class BayesFilter:
+    def __init__(self, grid):
+        self.measure_certainty = 0.90
+        self.green_probs = []
+        self.red_probs = []
 
-#     def algorithm(self, measurement):
-#         total_red_probability = 0
-#         total_green_probability = 0
-#         red_faktor = 0
-#         green_faktor = 0
-#         # a-priori
-#         if(measurement == Color.Red.value):
-#             for red_cell in self.red_cells:
-#                 red_faktor += red_cell.probability * self.measure_certainty
-#             for green_cell in self.green_cells:
-#                 green_faktor += green_cell.probability * \
-#                     (1-self.measure_certainty)
-#         if(measurement == Color.Green.value):
-#             for red_cell in self.red_cells:
-#                 red_faktor += red_cell.probability * (1-self.measure_certainty)
-#             for green_cell in self.green_cells:
-#                 green_faktor += green_cell.probability * \
-#                     self.measure_certainty
-#         print(green_faktor)
-#         print(red_faktor)
-#         # Calc normalizer mue
-#         mue = 1 / (green_faktor + red_faktor)
-
-#         # a-Posteriori
-#         for i in range(len(self.red_cells)):
-#             print(self.red_cells[i].probability)
-
-#         for i in range(len(self.red_cells)):
-#             if(measurement == Color.Red.value):
-#                 self.red_cells[i].probability = self.red_cells[i].probability * \
-#                     mue * self.measure_certainty
-#             else:
-#                 self.red_cells[i].probability = self.red_cells[i].probability * \
-#                     mue * (1-self.measure_certainty)
-
-#         for i in range(len(self.green_cells)):
-#             if(measurement == Color.Green.value):
-#                 self.green_cells[i].probability = self.green_cells[i].probability * \
-#                     mue * self.measure_certainty
-#             else:
-#                 self.green_cells[i].probability = self.green_cells[i].probability * \
-#                     mue * (1-self.measure_certainty)
-
-        # for red_cell in self.red_cells:
-        #     total_red_probability += red_cell.probability
-        # for green_cell in self.green_cells:
-        #     total_green_probability += green_cell.probability
-        # # Conditional Probability
-        # if(measurement == Color.Red.value):
-        #     red_faktor = len(self.red_cells)*self.measure_certainty
-        #     green_faktor = len(self.green_cells)*(1-self.measure_certainty)
-        # else:
-        #     red_faktor = len(self.red_cells)*(1-self.measure_certainty)
-        #     green_faktor = len(self.green_cells)*self.measure_certainty
-        # # Calculate normalize factor
-        # mue = 1 / (total_red_probability*red_faktor +
-        #            total_green_probability*green_faktor)
-        # print(mue)
-        # # a-posteriori
-        # for i in range(len(self.red_cells)):
-        #     if(measurement == Color.Red.value):
-        #         self.red_cells[i].probability = self.red_cells[i].probability * \
-        #             mue * (self.measure_certainty)
-        #     else:
-        #         self.red_cells[i].probability = self.red_cells[i].probability * \
-        #             mue * (1-self.measure_certainty)
-        # for i in range(len(self.green_cells)):
-        #     if(measurement == Color.Green.value):
-        #         self.green_cells[i].probability = self.green_cells[i].probability * \
-        #             mue * (self.measure_certainty)
-        #     else:
-        #         self.green_cells[i].probability = self.green_cells[i].probability * \
-        #             mue * (1-self.measure_certainty)
+    # def algorithm(self, measurement):
+    #     new_probs = []
+    #     for row in range(rows):
+    #         new = []
+    #         for column in range(columns):
+    #             new.append(0)
+    #         new_probs.append(new)
+    #     new_probs = np.swapaxes(new_probs, 0, 1)
+    #     # a-prio
+    #     for row in range(rows):
+    #         for column in range(columns):
+    #             if(grid.cells[column][row].color == measurement):
+    #                 new_probs[column][row] = grid.cells[column][row].probability
+    #             else:
+    #                 new_probs[column][row] = grid.cells[column][row].probability
+    #     print(new_probs)
+    #     new_probs = np.dot(new_probs, 1/np.sum(new_probs))
 
 
 pygame.font.init()
@@ -225,9 +222,10 @@ def estimated_position_display(screen, x_ext, y_est):
     screen.blit_text(estimated_position_text, (screen.width-screen.text_width+text_offset,
                                                text_offset+100, 100, 100))
 
-columns = 3 # X
-rows = 8 # Y
 
+columns = 5  # X
+rows = 5  # Y
+measure_uncertainty = 0.10
 
 screen = Graphic(800, 800, "Bayes Filter")
 grid = Grid(columns, rows, 37, 5)
@@ -235,26 +233,26 @@ grid = Grid(columns, rows, 37, 5)
 init_x = random.randint(1, columns)
 init_y = random.randint(1, rows)
 player = Player(grid, init_x, init_y, 15, Color.Blue.value)
-# bayes_filter = BayesFilter(grid)
+bayes_filter = BayesFilter(grid)
 
 
 run = True
 while run:
-   
+
     # Set Background
     screen.get_background()
     # Draw Cells
     grid.draw_cells(screen)
     # Draw Player
     player.draw_player(screen)
-  
+    time.sleep(0.1)
     # Player moves
     moved = player.move_player(grid)
-    #color = grid.measure_color(player.grid_x, player.grid_y)
-           # bayes_filter.algorithm(color)
-            # summe = 0
-            # for cell in grid.cells:
-            #     summe += cell.probability
+
+    if(moved):
+        color = grid.measure_color(
+            player.grid_x, player.grid_y, measure_uncertainty)
+        grid.algorithm(color)
 
     real_position_display(screen, player)
     # Refresh
