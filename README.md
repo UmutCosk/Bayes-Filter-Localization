@@ -1,1 +1,1 @@
-# Bayes Filter with 2 Color Grid
+# Bayes Filter Demonstration with 2 Color Grid
