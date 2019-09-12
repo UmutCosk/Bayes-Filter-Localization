@@ -9,9 +9,10 @@ import time
 import numpy as np
 pygame.init()
 
-columns = 19  # X
-rows = 19  # Y
-measure_uncertainty = 0.05
+columns = 6  # X
+rows = 6  # Y
+measure_uncertainty = 0.1  # 10% chance to measure wrong color
+speed = 0.1  # the lower the faster is movement (Simple sleep function)
 
 
 class LastMovement(Enum):
@@ -79,12 +80,17 @@ class Grid:
 
     def algorithm(self, measurement):
         new_probs = np.zeros((columns, rows))
+        # A-Priori
         for column in range(rows):
             for row in range(columns):
+                # Probability weights based on measurement
+                right = 2
+                wrong = 1
                 if(self.cells[column][row].color == measurement):
-                    new_probs[column][row] = self.cells[column][row].probability * 2
+                    new_probs[column][row] = self.cells[column][row].probability * right
                 else:
-                    new_probs[column][row] = self.cells[column][row].probability * 1
+                    new_probs[column][row] = self.cells[column][row].probability * wrong
+        # Calc normalizer + A-posteriori
         new_probs = np.dot(new_probs, 1/np.sum(new_probs))
         for row in range(rows):
             for column in range(columns):
@@ -116,7 +122,8 @@ class Player:
     def draw_player(self, screen):
         screen.draw_area(self.color, self.rect, 255)
 
-    def blur(self, blur_around_x, blur_around_y, blur_radius, grid, lastMove):
+    def shift_and_blur(self, blur_around_x, blur_around_y, blur_radius, grid, lastMove):
+        # Shift
         current_probabilities = np.zeros((columns, rows))
         shifted_probabilities = np.zeros((columns, rows))
         for row in range(rows):
@@ -135,20 +142,21 @@ class Player:
             for column in range(columns):
                 grid.cells[column][row].probability = shifted_probabilities[column][row]
 
-        grid.cells[blur_around_x][blur_around_y].probability = grid.cells[blur_around_x][blur_around_y].probability*1
-        for dx in range(blur_around_x-blur_radius, blur_around_x+blur_radius+1):
-            for dy in range(blur_around_y-blur_radius, blur_around_y+blur_radius+1):
-                if(not(dx < 0 or dy < 0) and not (dx == blur_around_x and dy == blur_around_y)and not(dx > columns-1 or dy > rows-1)):
-                    grid.cells[dx][dy].probability = grid.cells[dx][dy].probability * 1
-        # norm
-        summe = 0
-        for row in range(rows):
-            for column in range(columns):
-                summe += grid.cells[column][row].probability
-        norm = 1/summe
-        for row in range(rows):
-            for column in range(columns):
-                grid.cells[column][row].probability *= norm
+        # Blur - not implemented
+        # grid.cells[blur_around_x][blur_around_y].probability = grid.cells[blur_around_x][blur_around_y].probability*1
+        # for dx in range(blur_around_x-blur_radius, blur_around_x+blur_radius+1):
+        #     for dy in range(blur_around_y-blur_radius, blur_around_y+blur_radius+1):
+        #         if(not(dx < 0 or dy < 0) and not (dx == blur_around_x and dy == blur_around_y)and not(dx > columns-1 or dy > rows-1)):
+        #             grid.cells[dx][dy].probability = grid.cells[dx][dy].probability * 1
+        # # norm
+        # summe = 0
+        # for row in range(rows):
+        #     for column in range(columns):
+        #         summe += grid.cells[column][row].probability
+        # norm = 1/summe
+        # for row in range(rows):
+        #     for column in range(columns):
+        #         grid.cells[column][row].probability *= norm
 
     def move_player(self, grid):
         moved = False
@@ -157,48 +165,37 @@ class Player:
         if(keys[pygame.K_LEFT] or keys[pygame.K_RIGHT] or keys[pygame.K_UP] or keys[pygame.K_DOWN]):
             moved = True
             if keys[pygame.K_LEFT]:
-                self.grid_x -= 1
                 lastMovement = LastMovement.LEFT
+                self.grid_x -= 1
                 if(self.grid_x < 1):
-                    moved = False
-                    self.grid_x = 1
-            if keys[pygame.K_RIGHT]:
-                self.grid_x += 1
-                lastMovement = LastMovement.RIGHT
-                if(self.grid_x > columns):
-                    moved = False
                     self.grid_x = columns
-            if keys[pygame.K_UP]:
+            elif keys[pygame.K_RIGHT]:
+                lastMovement = LastMovement.RIGHT
+                self.grid_x += 1
+                if(self.grid_x > columns):
+                    self.grid_x = 1
+            elif keys[pygame.K_UP]:
                 lastMovement = LastMovement.UP
                 self.grid_y -= 1
                 if(self.grid_y < 1):
-                    moved = False
-                    self.grid_y = 1
-            if keys[pygame.K_DOWN]:
+                    self.grid_y = rows
+            elif keys[pygame.K_DOWN]:
                 lastMovement = LastMovement.DOWN
                 self.grid_y += 1
                 if(self.grid_y > rows):
-                    moved = False
-                    self.grid_y = rows
+                    self.grid_y = 1
         self.update_rect()
         if(not moved):
             lastMovement = LastMovement.NONE
         if(moved):
-            self.blur(blur_around_x=(self.grid_x-1),
-                      blur_around_y=(self.grid_y-1), blur_radius=1, grid=grid, lastMove=lastMovement)
+            self.shift_and_blur(blur_around_x=(self.grid_x-1),
+                                blur_around_y=(self.grid_y-1), blur_radius=1, grid=grid, lastMove=lastMovement)
         return moved
 
     def update_rect(self):
         self.x = grid.get_grid_x(self.grid_x)+round((grid.size-self.size)/2)
         self.y = grid.get_grid_y(self.grid_y)+round((grid.size-self.size)/2)
         self.rect = (self.x, self.y, self.size, self.size)
-
-
-class BayesFilter:
-    def __init__(self, grid):
-        self.measure_certainty = 0.90
-        self.green_probs = []
-        self.red_probs = []
 
 
 pygame.font.init()
@@ -208,14 +205,21 @@ text_offset = 10
 
 def real_position_display(screen, player):
     real_position_text = font.render(
-        "Real position: x: "+str(player.grid_x)+", y: "+str(player.grid_y), True, Color.Blue.value)
+        "Real position: x: "+str(player.grid_x-1)+", y: "+str(player.grid_y-1), True, Color.Blue.value)
     screen.blit_text(real_position_text, (screen.width-screen.text_width+text_offset,
                                           text_offset, 100, 100))
 
 
-def estimated_position_display(screen, x_ext, y_est):
+def most_likely_position_display(screen, grid):
+    probabilities = np.zeros((columns, rows))
+    for row in range(rows):
+        for column in range(columns):
+            probabilities[column][row] = grid.cells[column][row].probability
+    maxElement = np.amax(probabilities)
+    grid_position = np.unravel_index(
+        np.argmax(probabilities, axis=None), probabilities.shape)
     estimated_position_text = font.render(
-        "Estimated position: x: "+str(x_ext)+", y: "+str(y_est), True, Color.Green.value)
+        "Most likely position: x: "+str(grid_position[0])+", y: "+str(grid_position[1]), True, Color.Green.value)
     screen.blit_text(estimated_position_text, (screen.width-screen.text_width+text_offset,
                                                text_offset+100, 100, 100))
 
@@ -226,7 +230,6 @@ grid = Grid(columns, rows, 37, 5)
 init_x = random.randint(1, columns)
 init_y = random.randint(1, rows)
 player = Player(grid, init_x, init_y, 15, Color.Blue.value)
-bayes_filter = BayesFilter(grid)
 
 
 run = True
@@ -238,7 +241,8 @@ while run:
     grid.draw_cells(screen)
     # Draw Player
     player.draw_player(screen)
-    time.sleep(0.05)
+    # Speed
+    time.sleep(speed)
     # Player moves
     moved = player.move_player(grid)
 
@@ -246,7 +250,9 @@ while run:
         color = grid.measure_color(
             player.grid_x, player.grid_y, measure_uncertainty)
         grid.algorithm(color)
-
+    # Display position of what the Filter "thinks" where the real position might be
+    most_likely_position_display(screen, grid)
+    # Display real position
     real_position_display(screen, player)
     # Refresh
     screen.update_screen()
