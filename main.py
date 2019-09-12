@@ -9,10 +9,15 @@ import time
 import numpy as np
 pygame.init()
 
-columns = 6  # X
-rows = 6  # Y
-measure_uncertainty = 0.1  # 10% chance to measure wrong color
-speed = 0.1  # the lower the faster is movement (Simple sleep function)
+columns = 19  # X
+rows = 19  # Y
+# Chance that the measurement gives the wrong color
+# Here 40%, very high value, still converges with enough measurements
+measure_uncertainty = 0.4
+# Given a Measurement, how likely you are on the:
+right_color = 1-measure_uncertainty
+wrong_color = measure_uncertainty
+speed = 0.03  # the lower the faster is movement (Simple sleep function)
 
 
 class LastMovement(Enum):
@@ -83,9 +88,9 @@ class Grid:
         # A-Priori
         for column in range(rows):
             for row in range(columns):
-                # Probability weights based on measurement
-                right = 2
-                wrong = 1
+                # Given Measurement, how likely that measure is wrong/right
+                right = 0.95
+                wrong = 0.05
                 if(self.cells[column][row].color == measurement):
                     new_probs[column][row] = self.cells[column][row].probability * right
                 else:
@@ -205,7 +210,7 @@ text_offset = 10
 
 def real_position_display(screen, player):
     real_position_text = font.render(
-        "Real position: x: "+str(player.grid_x-1)+", y: "+str(player.grid_y-1), True, Color.Blue.value)
+        "True position: x: "+str(player.grid_x-1)+", y: "+str(player.grid_y-1), True, Color.Blue.value)
     screen.blit_text(real_position_text, (screen.width-screen.text_width+text_offset,
                                           text_offset, 100, 100))
 
@@ -219,7 +224,7 @@ def most_likely_position_display(screen, grid):
     grid_position = np.unravel_index(
         np.argmax(probabilities, axis=None), probabilities.shape)
     estimated_position_text = font.render(
-        "Most likely position: x: "+str(grid_position[0])+", y: "+str(grid_position[1]), True, Color.Green.value)
+        "Estimated position: x: "+str(grid_position[0])+", y: "+str(grid_position[1]), True, Color.Green.value)
     screen.blit_text(estimated_position_text, (screen.width-screen.text_width+text_offset,
                                                text_offset+100, 100, 100))
 
